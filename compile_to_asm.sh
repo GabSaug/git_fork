@@ -29,8 +29,8 @@ localedir_relative=$(echo "$localedir" | sed "s|^${prefix}/||")
 htmldir_relative=$(echo "$htmldir" | sed "s|^${prefix}/||")
 perllibdir_relative=$(echo "$perllibdir" | sed "s|^${prefix}/||")
 
-DESTDIR_SQ=\"${DESTDIR//\'/\'\\\'\'}\"
-NO_GETTEXT_SQ=\"${NO_GETTEXT//\'/\'\\\'\'}\"
+#DESTDIR_SQ=\"${DESTDIR//\'/\'\\\'\'}\"
+#NO_GETTEXT_SQ=\"${NO_GETTEXT//\'/\'\\\'\'}\"
 bindir_SQ=\"${bindir//\'/\'\\\'\'}\"
 bindir_relative_SQ=\"${bindir_relative//\'/\'\\\'\'}\"
 mandir_SQ=\"${mandir//\'/\'\\\'\'}\"

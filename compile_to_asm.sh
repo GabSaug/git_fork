@@ -48,7 +48,7 @@ perllibdir_relative_SQ=\"${perllibdir_relative//\'/\'\\\'\'}\"
 gitwebdir_SQ=\"${gitwebdir//\'/\'\\\'\'}\"
 gitwebstaticdir_SQ=\"${gitwebstaticdir//\'/\'\\\'\'}\"
 
-opt="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g") -Wno-error -finline-limit=2"
+opt="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g")  -fno-inline -Wno-error -finline-limit=2"
 if ! cc -o "$2" -S -masm=intel -DGIT_HTML_PATH="${htmldir_relative_SQ}" -DGIT_MAN_PATH="${mandir_relative_SQ}" -DGIT_INFO_PATH="${infodir_relative_SQ}" -MF xdiff/.depend/xdiffi.o.d -MQ xdiff/xdiffi.o -MMD -MP $opt -I./reftable/ -I. -I./refs/ "$1"; then
 	echo "error compile to asm"
 	exit 1

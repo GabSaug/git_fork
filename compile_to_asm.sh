@@ -1,55 +1,80 @@
-# $1: name of the c file to compile to assembly
-# $2 output path
+#!/bin/bash
 
+set -e
 
-# We need to add some const values, taken directly from the Makefile
+# Input arguments
+SRC_FILE="$1"       # e.g., path/to/sparse-index.c
+OUT_FILE="$2"       # e.g., sparse-index.s
+opt="$3"    # e.g., -O2 -Wall
+EXTRA_FLAGS="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g")  -fno-inline -Wno-error -finline-limit=2"
 
-prefix=/usr/local
-bindir=${prefix}/bin
-mandir=${prefix}/share/man
-infodir=${prefix}/share/info
-gitexecdir=libexec/git-core
-mergetoolsdir=${gitexecdir}/mergetools
-sharedir=${prefix}/share
-gitwebdir=${sharedir}/gitweb
-gitwebstaticdir=${gitwebdir}/static
-perllibdir=${sharedir}/perl5
-localedir=${sharedir}/locale
-template_dir=share/git-core/templates
-htmldir=${prefix}/share/doc/git-doc
-ETC_GITCONFIG=${sysconfdir}/gitconfig
-ETC_GITATTRIBUTES=${sysconfdir}/gitattributes
-lib=lib
-
-bindir_relative=$(echo "$bindir" | sed "s|^${prefix}/||")
-mandir_relative=$(echo "$mandir" | sed "s|^${prefix}/||")
-infodir_relative=$(echo "$infodir" | sed "s|^${prefix}/||")
-gitexecdir_relative=$(echo "$gitexecdir" | sed "s|^${prefix}/||")
-localedir_relative=$(echo "$localedir" | sed "s|^${prefix}/||")
-htmldir_relative=$(echo "$htmldir" | sed "s|^${prefix}/||")
-perllibdir_relative=$(echo "$perllibdir" | sed "s|^${prefix}/||")
-
-#DESTDIR_SQ=\"${DESTDIR//\'/\'\\\'\'}\"
-#NO_GETTEXT_SQ=\"${NO_GETTEXT//\'/\'\\\'\'}\"
-bindir_SQ=\"${bindir//\'/\'\\\'\'}\"
-bindir_relative_SQ=\"${bindir_relative//\'/\'\\\'\'}\"
-mandir_SQ=\"${mandir//\'/\'\\\'\'}\"
-mandir_relative_SQ=\"${mandir_relative//\'/\'\\\'\'}\"
-infodir_relative_SQ=\"${infodir_relative//\'/\'\\\'\'}\"
-perllibdir_SQ=\"${perllibdir//\'/\'\\\'\'}\"
-localedir_SQ=\"${localedir//\'/\'\\\'\'}\"
-localedir_relative_SQ=\"${localedir_relative//\'/\'\\\'\'}\"
-gitexecdir_SQ=\"${gitexecdir//\'/\'\\\'\'}\"
-gitexecdir_relative_SQ=\"${gitexecdir_relative//\'/\'\\\'\'}\"
-template_dir_SQ=\"${template_dir//\'/\'\\\'\'}\"
-htmldir_relative_SQ=\"${htmldir_relative//\'/\'\\\'\'}\"
-prefix_SQ=\"${prefix//\'/\'\\\'\'}\"
-perllibdir_relative_SQ=\"${perllibdir_relative//\'/\'\\\'\'}\"
-gitwebdir_SQ=\"${gitwebdir//\'/\'\\\'\'}\"
-gitwebstaticdir_SQ=\"${gitwebstaticdir//\'/\'\\\'\'}\"
-
-opt="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g")  -fno-inline -Wno-error -finline-limit=2"
-if ! cc -o "$2" -S -masm=intel -DGIT_HTML_PATH="${htmldir_relative_SQ}" -DGIT_MAN_PATH="${mandir_relative_SQ}" -DGIT_INFO_PATH="${infodir_relative_SQ}" -MF xdiff/.depend/xdiffi.o.d -MQ xdiff/xdiffi.o -MMD -MP $opt -I./reftable/ -I. -I./refs/ "$1"; then
-	echo "error compile to asm"
-	exit 1
+# Ensure inputs are provided
+if [ -z "$SRC_FILE" ] || [ -z "$OUT_FILE" ]; then
+    echo "Usage: $0 <source_file.c> <output_file.s> [extra_compilation_flags]"
+    exit 1
 fi
+
+# Get object file name from source
+SRC_BASENAME=$(basename "$SRC_FILE")                   # e.g., sparse-index.c
+OBJ_NAME="${SRC_BASENAME%.c}.o"                        # e.g., sparse-index.o
+
+# Clean the object file if it exists
+[ -f "$OBJ_NAME" ] && rm "$OBJ_NAME"
+
+# Try to find the actual compilation command from make
+echo "[*] Searching for compilation command for $OBJ_NAME..."
+MAKE_OUTPUT=$(make V=1 "$OBJ_NAME" 2>&1 || true)
+
+# Find the relevant compilation line
+COMPILE_LINE=$(echo "$MAKE_OUTPUT" | grep -E " -c .*${SRC_BASENAME}" | head -n 1)
+
+
+if [ -z "$COMPILE_LINE" ]; then
+	echo "[!] Could not find compilation command for $OBJ_NAME"
+	# Extract the source file name from the input string
+	SRC_FILE=$(echo "$SRC_FILE" | awk -F'/' '{print $NF}' | cut -d'+' -f2)
+
+	# Replace '@' with '/'
+	SRC_FILE=${SRC_FILE//@//}
+
+	# Get object file name from source
+	OBJ_NAME="${SRC_FILE%.c}.o"                        # e.g., sparse-index.o
+
+	# Clean the object file if it exists
+	[ -f "$OBJ_NAME" ] && rm "$OBJ_NAME"
+
+	# Try to find the actual compilation command from make
+	echo "[*] Searching for compilation command for $OBJ_NAME..."
+	MAKE_OUTPUT=$(make V=1 "$OBJ_NAME" 2>&1 || true)
+
+	# Find the relevant compilation line
+	COMPILE_LINE=$(echo "$MAKE_OUTPUT" | grep -E " -c .*${SRC_FILE}" | head -n 1)
+	if [ -z "$COMPILE_LINE" ]; then
+		echo "[!] Could not find compilation command for $OBJ_NAME"
+		exit 1
+	fi
+fi
+
+echo "[*] Found compile command:"
+echo "$COMPILE_LINE"
+
+# Modify the compile command:
+# - Replace -c with -S (compile to assembly)
+# - Replace -o <objfile> with -o $OUT_FILE
+# - Append any extra flags
+
+ASM_COMMAND=$(echo "$COMPILE_LINE" | sed -E \
+    -e 's/-c /-S -masm=intel /' \
+    -e 's/-o [^ ]*/-o $OUT_FILE/' )
+
+# Add extra flags, if any
+if [ -n "$EXTRA_FLAGS" ]; then
+    ASM_COMMAND="$ASM_COMMAND $EXTRA_FLAGS"
+fi
+
+echo "[*] Compiling to assembly..."
+echo "$ASM_COMMAND"
+eval "$ASM_COMMAND"
+
+echo "[✓] Assembly written to $OUT_FILE"
+

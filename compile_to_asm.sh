@@ -32,13 +32,13 @@ COMPILE_LINE=$(echo "$MAKE_OUTPUT" | grep -E " -c .*${SRC_BASENAME}" | head -n 1
 if [ -z "$COMPILE_LINE" ]; then
 	echo "[!] Could not find compilation command for $OBJ_NAME"
 	# Extract the source file name from the input string
-	SRC_FILE=$(echo "$SRC_FILE" | awk -F'/' '{print $NF}' | cut -d'+' -f2)
+	SRC_FILE2=$(echo "$SRC_FILE" | awk -F'/' '{print $NF}' | cut -d'+' -f2)
 
 	# Replace '@' with '/'
-	SRC_FILE=${SRC_FILE//@//}
+	SRC_FILE2=${SRC_FILE2//@//}
 
 	# Get object file name from source
-	OBJ_NAME="${SRC_FILE%.c}.o"                        # e.g., sparse-index.o
+	OBJ_NAME="${SRC_FILE2%.c}.o"                        # e.g., sparse-index.o
 
 	# Clean the object file if it exists
 	[ -f "$OBJ_NAME" ] && rm "$OBJ_NAME"
@@ -48,7 +48,7 @@ if [ -z "$COMPILE_LINE" ]; then
 	MAKE_OUTPUT=$(make V=1 "$OBJ_NAME" 2>&1 || true)
 
 	# Find the relevant compilation line
-	COMPILE_LINE=$(echo "$MAKE_OUTPUT" | grep -E " -c .*${SRC_FILE}" | head -n 1)
+	COMPILE_LINE=$(echo "$MAKE_OUTPUT" | grep -E " -c .*${SRC_FILE2}" | head -n 1)
 	if [ -z "$COMPILE_LINE" ]; then
 		echo "[!] Could not find compilation command for $OBJ_NAME"
 		exit 1
@@ -62,12 +62,16 @@ echo "$COMPILE_LINE"
 # - Replace -c with -S (compile to assembly)
 # - Replace -o <objfile> with -o $OUT_FILE
 # - Append any extra flags
+#
 
 ASM_COMMAND=$(echo "$COMPILE_LINE" | sed -E \
     -e 's/-c /-S -masm=intel /' \
     -e 's/-g / /' \
-	-e "s@[^ ]+\.c@$SRC_FILE@" \
+    -e 's/[^ ]+\.c/$SRC_FILE/' \
     -e 's/-o [^ ]*/-o $OUT_FILE/' )
+
+echo "[*] Modified compile command:"
+echo $ASM_COMMAND
 
 # Add extra flags, if any
 if [ -n "$EXTRA_FLAGS" ]; then

@@ -6,7 +6,7 @@ set -e
 SRC_FILE="$1"       # e.g., path/to/sparse-index.c
 OUT_FILE="$2"       # e.g., sparse-index.s
 opt="$3"    # e.g., -O2 -Wall
-EXTRA_FLAGS="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g")  -fno-inline -Wno-error -finline-limit=2"
+EXTRA_FLAGS="$(echo $3 | sed -e "s/-O0/$(cat /etc/gcc.opt)/g") -fno-dce -fno-tree-dce -fno-inline -Wno-error -finline-limit=2"
 
 # Ensure inputs are provided
 if [ -z "$SRC_FILE" ] || [ -z "$OUT_FILE" ]; then
@@ -65,6 +65,8 @@ echo "$COMPILE_LINE"
 
 ASM_COMMAND=$(echo "$COMPILE_LINE" | sed -E \
     -e 's/-c /-S -masm=intel /' \
+    -e 's/-g / /' \
+	-e "s@[^ ]+\.c@$SRC_FILE@" \
     -e 's/-o [^ ]*/-o $OUT_FILE/' )
 
 # Add extra flags, if any

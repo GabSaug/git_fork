@@ -53,6 +53,7 @@ if [ -z "$COMPILE_LINE" ]; then
 		echo "[!] Could not find compilation command for $OBJ_NAME"
 		exit 1
 	fi
+	BASE_FOLDER=$(dirname $SRC_FILE2)
 fi
 
 echo "[*] Found compile command:"
@@ -75,7 +76,7 @@ echo $ASM_COMMAND
 
 # Add extra flags, if any
 if [ -n "$EXTRA_FLAGS" ]; then
-    ASM_COMMAND="$ASM_COMMAND $EXTRA_FLAGS"
+    ASM_COMMAND="$ASM_COMMAND $EXTRA_FLAGS -I$BASE_FOLDER"
 fi
 
 echo "[*] Compiling to assembly..."
